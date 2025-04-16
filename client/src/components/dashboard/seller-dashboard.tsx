@@ -183,7 +183,6 @@ export function SellerDashboard() {
       description: "",
       price: 0,
       stock: 0,
-      image_url: "",
       category_ids: [],
     },
   });
@@ -196,7 +195,6 @@ export function SellerDashboard() {
       description: "",
       price: 0,
       stock: 0,
-      image_url: "",
       category_ids: [],
     },
   });
@@ -209,7 +207,6 @@ export function SellerDashboard() {
         description: productToEdit.description,
         price: productToEdit.price,
         stock: productToEdit.stock,
-        image_url: productToEdit.image_url || "",
         category_ids: productToEdit.categories?.map((c: any) => c.id) || [],
       });
     }
