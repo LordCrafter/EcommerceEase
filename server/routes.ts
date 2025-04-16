@@ -886,28 +886,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SELLER MANAGEMENT (ADMIN)
-  app.get("/api/sellers", hasRole("admin"), async (req, res, next) => {
+  // SELLER MANAGEMENT
+  app.get("/api/sellers", isAuthenticated, async (req, res, next) => {
     try {
-      const sellers = await storage.listSellers();
+      const { userId } = req.query;
+      const user = req.user!; // Always defined due to isAuthenticated middleware
       
-      // Get user details for each seller
-      const sellersWithDetails = await Promise.all(
-        sellers.map(async (seller) => {
-          const user = await storage.getUser(seller.user_id);
-          return {
-            ...seller,
-            user: user ? {
-              id: user.id,
-              username: user.username,
-              name: user.name,
-              email: user.email
-            } : null
-          };
-        })
-      );
+      // If userId query param is provided and user is a seller, only return their own seller profile
+      if (userId && user.role === "seller" && parseInt(userId as string) !== user.id) {
+        return res.status(403).json({ message: "You can only view your own seller profile" });
+      }
       
-      res.json(sellersWithDetails);
+      // If user is a seller and no userId is provided, default to their own profile
+      if (user.role === "seller" && !userId) {
+        const seller = await storage.getSellerByUserId(user.id);
+        if (!seller) {
+          return res.status(404).json({ message: "Seller profile not found" });
+        }
+        
+        return res.json([{
+          ...seller,
+          user: {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            email: user.email,
+            role: user.role
+          }
+        }]);
+      }
+      
+      // For specific userId (admin can view any, seller only their own)
+      if (userId) {
+        const seller = await storage.getSellerByUserId(parseInt(userId as string));
+        if (!seller) {
+          return res.status(404).json({ message: "Seller profile not found" });
+        }
+        
+        const sellerUser = await storage.getUser(seller.user_id);
+        return res.json([{
+          ...seller,
+          user: sellerUser ? {
+            id: sellerUser.id,
+            username: sellerUser.username,
+            name: sellerUser.name,
+            email: sellerUser.email,
+            role: sellerUser.role
+          } : null
+        }]);
+      }
+      
+      // Admin can list all sellers
+      if (user.role === "admin") {
+        const sellers = await storage.listSellers();
+        
+        // Get user details for each seller
+        const sellersWithDetails = await Promise.all(
+          sellers.map(async (seller) => {
+            const user = await storage.getUser(seller.user_id);
+            return {
+              ...seller,
+              user: user ? {
+                id: user.id,
+                username: user.username,
+                name: user.name,
+                email: user.email,
+                role: user.role
+              } : null
+            };
+          })
+        );
+        
+        res.json(sellersWithDetails);
+      } else {
+        // Non-admin users can't list all sellers
+        return res.status(403).json({ message: "Unauthorized" });
+      }
     } catch (error) {
       next(error);
     }
