@@ -164,9 +164,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get seller_id from user
       let sellerId;
       if (user.role === "seller") {
-        const seller = await storage.getSellerByUserId(user.id);
+        let seller = await storage.getSellerByUserId(user.id);
         if (!seller) {
-          return res.status(400).json({ message: "Seller profile not found" });
+          // Create a seller profile automatically for this user
+          seller = await storage.createSeller({
+            user_id: user.id,
+            seller_id: `SELLER-${randomBytes(4).toString("hex")}`,
+            shop_name: `${user.name || user.username}'s Store`,
+            joined_date: new Date(),
+            rating: 5.0,
+            verified: true
+          });
+          console.log("Created seller profile for user:", user.id);
         }
         sellerId = seller.id;
       } else {

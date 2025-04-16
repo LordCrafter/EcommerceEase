@@ -33,9 +33,19 @@ export const sellers = pgTable("sellers", {
   user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   seller_id: text("seller_id").notNull().unique(),
   shop_name: text("shop_name").notNull(),
+  joined_date: timestamp("joined_date").defaultNow().notNull(),
+  rating: doublePrecision("rating").default(5.0),
+  verified: boolean("verified").default(false),
 });
 
-export const insertSellerSchema = createInsertSchema(sellers).omit({
+export const insertSellerSchema = createInsertSchema(sellers, {
+  seller_id: z.string().min(1),
+  user_id: z.number().int().positive(),
+  shop_name: z.string().min(1),
+  joined_date: z.date().optional(),
+  rating: z.number().optional(),
+  verified: z.boolean().optional(),
+}).omit({
   id: true,
 });
 
@@ -54,13 +64,19 @@ export const products = pgTable("products", {
   status: text("status").notNull().default("active"), // "active", "pending", "delisted"
 });
 
-export const insertProductSchema = createInsertSchema(products).omit({
+export const insertProductSchema = createInsertSchema(products, {
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().min(1, "Description is required"),
+  price: z.coerce.number().positive("Price must be positive"),
+  stock: z.coerce.number().int().nonnegative("Stock must be a non-negative integer"),
+  image_url: z.string().optional(),
+  status: z.string().default("active"),
+}).omit({
   id: true,
+  product_id: true, // Generated on server
+  seller_id: true,  // Derived from the authenticated user
   added_date: true,
   last_updated: true,
-}).extend({
-  product_id: z.string().optional(),  // Made optional since we generate it on the server
-  seller_id: z.number().optional(),   // Made optional since we get it from the authenticated user
 });
 
 // Categories
