@@ -32,36 +32,6 @@ export default function HomePage() {
     <MainLayout>
       <HeroSection />
 
-      {/* Featured Products Section */}
-      <section className="container mx-auto px-4 py-10">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Featured Products</h2>
-          <Link href="/products">
-            <Button variant="link">View all</Button>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {isLoadingProducts
-            ? Array(4)
-                .fill(0)
-                .map((_, index) => (
-                  <div key={index} className="bg-white rounded-lg shadow-sm p-4">
-                    <Skeleton className="w-full h-48 rounded-md mb-4" />
-                    <Skeleton className="w-2/3 h-6 rounded-md mb-2" />
-                    <Skeleton className="w-1/2 h-4 rounded-md mb-4" />
-                    <div className="flex items-center justify-between">
-                      <Skeleton className="w-1/3 h-6 rounded-md" />
-                      <Skeleton className="w-10 h-10 rounded-full" />
-                    </div>
-                  </div>
-                ))
-            : featuredProducts.map((product: any) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-        </div>
-      </section>
-
       {/* Popular Categories Section */}
       <section className="container mx-auto px-4 py-8 mb-10">
         <h2 className="text-2xl font-bold mb-6">Shop by Category</h2>
