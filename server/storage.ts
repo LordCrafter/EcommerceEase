@@ -13,7 +13,7 @@ import {
 // Define the storage interface
 export interface IStorage {
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any as a workaround for session.SessionStore typing issues
 
   // User operations
   getUser(id: number): Promise<User | undefined>;
@@ -118,7 +118,7 @@ export class MemStorage implements IStorage {
   private shipments: Map<number, Shipment>;
   private reviews: Map<number, Review>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any as a workaround for session.SessionStore typing issues
   userIdCounter: number;
   sellerIdCounter: number;
   productIdCounter: number;
@@ -465,7 +465,7 @@ export class MemStorage implements IStorage {
     if (existingItem) {
       // Update quantity of existing item
       return this.updateCartItem(existingItem.id, { 
-        quantity: existingItem.quantity + insertCartItem.quantity 
+        quantity: existingItem.quantity + (insertCartItem.quantity || 1) // Default to 1 if undefined
       }) as Promise<CartItem>;
     }
 
@@ -474,7 +474,8 @@ export class MemStorage implements IStorage {
     const cartItem: CartItem = { 
       ...insertCartItem, 
       id, 
-      added_date: new Date() 
+      added_date: new Date(),
+      quantity: insertCartItem.quantity || 1 // Ensure quantity has a value
     };
     this.cartItems.set(id, cartItem);
     return cartItem;
@@ -692,4 +693,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { DbStorage } from "./db-storage";
+
+// Choose which storage implementation to use based on environment
+const useDbStorage = process.env.DATABASE_URL !== undefined;
+export const storage = useDbStorage ? new DbStorage() : new MemStorage();

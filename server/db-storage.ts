@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import session from "express-session";
-import pgSession from "connect-pg-simple";
+import connectPgSimple from "connect-pg-simple";
 import {
   User, InsertUser, Seller, InsertSeller, Product, InsertProduct,
   Category, InsertCategory, ProductCategory, InsertProductCategory,
@@ -16,12 +16,12 @@ import { IStorage } from "./storage";
 import { Pool } from "@neondatabase/serverless";
 
 export class DbStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any as a workaround for session.SessionStore typing issues
   
   constructor() {
     // Setup session store with PostgreSQL
-    const pgStoreFactory = pgSession(session);
-    this.sessionStore = new pgStoreFactory({
+    const PgStore = connectPgSimple(session);
+    this.sessionStore = new PgStore({
       pool: new Pool({ connectionString: process.env.DATABASE_URL }),
       tableName: 'session',
       createTableIfMissing: true
@@ -326,7 +326,7 @@ export class DbStorage implements IStorage {
     if (existingItems.length > 0) {
       // Update quantity instead of creating new item
       const existingItem = existingItems[0];
-      const newQuantity = existingItem.quantity + insertCartItem.quantity;
+      const newQuantity = existingItem.quantity + (insertCartItem.quantity || 1); // Default to 1 if undefined
       
       const [updatedItem] = await db.update(schema.cartItems)
         .set({ quantity: newQuantity })
