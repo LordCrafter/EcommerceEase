@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Link } from "wouter";
 import {
   LayoutDashboard,
   Package,
@@ -106,10 +107,17 @@ export function SellerDashboard() {
   // Add product mutation
   const addProductMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/products", {
-        ...data,
-        categories: data.category_ids,
-      });
+      // Make sure all the required fields are properly formatted
+      const productData = {
+        name: data.name,
+        description: data.description,
+        price: Number(data.price),
+        stock: Number(data.stock),
+        image_url: data.image_url || undefined,
+        category_ids: data.category_ids || [],
+      };
+      
+      return await apiRequest("POST", "/api/products", productData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -118,8 +126,11 @@ export function SellerDashboard() {
         title: "Product created",
         description: "Your product has been created successfully and is pending approval.",
       });
+      // Clear the form
+      addProductForm.reset();
     },
     onError: (error: Error) => {
+      console.error("Error creating product:", error);
       toast({
         title: "Error creating product",
         description: error.message,
@@ -274,9 +285,19 @@ export function SellerDashboard() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Seller Dashboard
-        </h1>
+        <div className="flex items-center space-x-4">
+          <Link href="/">
+            <Button variant="outline" size="sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Home
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Seller Dashboard
+          </h1>
+        </div>
         <Button onClick={() => setIsAddProductOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Add New Product
         </Button>
