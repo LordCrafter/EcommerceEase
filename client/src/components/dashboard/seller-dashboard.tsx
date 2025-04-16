@@ -114,7 +114,7 @@ export function SellerDashboard() {
         price: Number(data.price),
         stock: Number(data.stock),
         image_url: data.image_url || undefined,
-        category_ids: data.category_ids || [],
+        categories: data.category_ids || [], // Using 'categories' as the server expects
       };
       
       return await apiRequest("POST", "/api/products", productData);

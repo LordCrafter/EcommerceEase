@@ -186,12 +186,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add categories if specified
       if (req.body.categories && Array.isArray(req.body.categories)) {
         for (const categoryId of req.body.categories) {
-          const category = await storage.getCategory(categoryId);
-          if (category) {
-            await storage.assignProductToCategory({
-              product_id: product.id,
-              category_id: category.id
-            });
+          try {
+            const category = await storage.getCategory(parseInt(categoryId));
+            if (category) {
+              await storage.assignProductToCategory({
+                product_id: product.id,
+                category_id: category.id
+              });
+            }
+          } catch (error) {
+            console.error(`Error adding category ${categoryId} to product:`, error);
+            // Continue with other categories even if one fails
           }
         }
       }
@@ -224,25 +229,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update categories if specified
       if (req.body.categories && Array.isArray(req.body.categories)) {
-        // Get current categories
-        const currentCategories = await storage.getProductCategories(id);
-        const currentCategoryIds = currentCategories.map(c => c.id);
-        
-        // Add new categories
-        for (const categoryId of req.body.categories) {
-          if (!currentCategoryIds.includes(categoryId)) {
-            await storage.assignProductToCategory({
-              product_id: id,
-              category_id: categoryId
-            });
+        try {
+          // Get current categories
+          const currentCategories = await storage.getProductCategories(id);
+          const currentCategoryIds = currentCategories.map(c => c.id);
+          
+          // Add new categories
+          for (const categoryId of req.body.categories) {
+            const catId = parseInt(categoryId);
+            if (!currentCategoryIds.includes(catId)) {
+              await storage.assignProductToCategory({
+                product_id: id,
+                category_id: catId
+              });
+            }
           }
-        }
-        
-        // Remove categories not in the new list
-        for (const category of currentCategories) {
-          if (!req.body.categories.includes(category.id)) {
-            await storage.removeProductFromCategory(id, category.id);
+          
+          // Remove categories not in the new list
+          for (const category of currentCategories) {
+            if (!req.body.categories.includes(category.id.toString()) && 
+                !req.body.categories.includes(category.id)) {
+              await storage.removeProductFromCategory(id, category.id);
+            }
           }
+        } catch (error) {
+          console.error("Error updating product categories:", error);
+          // Continue with the response even if category updates fail
         }
       }
       

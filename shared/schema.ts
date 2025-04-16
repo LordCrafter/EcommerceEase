@@ -58,6 +58,9 @@ export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   added_date: true,
   last_updated: true,
+}).extend({
+  product_id: z.string().optional(),  // Made optional since we generate it on the server
+  seller_id: z.number().optional(),   // Made optional since we get it from the authenticated user
 });
 
 // Categories
