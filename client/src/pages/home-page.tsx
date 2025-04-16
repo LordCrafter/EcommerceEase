@@ -28,6 +28,9 @@ export default function HomePage() {
   // Popular categories (all categories for now)
   const popularCategories = categories || [];
 
+  // Type-safe categories array
+  const categoriesArray = Array.isArray(popularCategories) ? popularCategories : [];
+
   return (
     <MainLayout>
       <HeroSection />
@@ -48,7 +51,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))
-            : popularCategories.slice(0, 4).map((category: any) => (
+            : categoriesArray.slice(0, 4).map((category: any) => (
                 <Link
                   key={category.id}
                   href={`/categories/${category.id}`}

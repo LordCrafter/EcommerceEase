@@ -99,7 +99,6 @@ export function SellerDashboard() {
     description: z.string().min(10, "Description must be at least 10 characters"),
     price: z.coerce.number().min(0.01, "Price must be greater than 0"),
     stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
-    image_url: z.string().optional(),
     category_ids: z.array(z.coerce.number()).optional(),
   });
 
@@ -352,16 +351,7 @@ export function SellerDashboard() {
                     products.map((product: any) => (
                       <TableRow key={product.id}>
                         <TableCell className="font-medium">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 mr-3">
-                              <img
-                                src={product.image_url || `https://source.unsplash.com/featured/40x40?${encodeURIComponent(product.name.split(' ')[0])}`}
-                                alt={product.name}
-                                className="rounded object-cover w-10 h-10"
-                              />
-                            </div>
-                            {product.name}
-                          </div>
+                          {product.name}
                         </TableCell>
                         <TableCell>${product.price.toFixed(2)}</TableCell>
                         <TableCell>{product.stock}</TableCell>
@@ -561,19 +551,7 @@ export function SellerDashboard() {
                 />
               </div>
 
-              <FormField
-                control={addProductForm.control}
-                name="image_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Image URL field removed as requested */}
 
               <FormField
                 control={addProductForm.control}
@@ -715,19 +693,7 @@ export function SellerDashboard() {
                 />
               </div>
 
-              <FormField
-                control={editProductForm.control}
-                name="image_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image URL</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://example.com/image.jpg" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Image URL field removed as requested */}
 
               <FormField
                 control={editProductForm.control}
