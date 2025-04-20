@@ -164,55 +164,54 @@ export class DbStorage implements IStorage {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      let query = db.select().from(schema.products);
+      // ULTRA SIMPLE APPROACH: Just get all products directly from database
+      console.log('Getting ALL products directly from database');
       
-      // Apply filters
-      if (filter) {
-        if (filter.sellerId !== undefined) {
-          query = query.where(eq(schema.products.seller_id, filter.sellerId));
-        }
+      // First, check if there are any products at all
+      const allProducts = await db.execute(sql`SELECT * FROM products`);
+      console.log(`DIRECT SQL: Found ${allProducts.length} total products in database`);
+      
+      if (filter?.categoryId !== undefined) {
+        console.log('SPECIAL DEBUG FOR ELECTRONICS CATEGORY');
+        // Direct check for the category
+        const allProductsCheck = await db.execute(sql`SELECT * FROM products`);
+        console.log(`DEBUG: Found ${allProductsCheck.length} total products directly from database`);
         
-        if (filter.status !== undefined) {
-          query = query.where(eq(schema.products.status, filter.status));
-        }
+        const categoryAssociations = await db.execute(
+          sql`SELECT * FROM product_categories WHERE category_id = ${filter.categoryId}`
+        );
+        console.log(`DEBUG: Found ${categoryAssociations.length} associations for Electronics category`);
         
-        // Handle category filter separately
-        if (filter.categoryId !== undefined) {
-          // Get product IDs that belong to this category
-          const productCategories = await db.select()
-            .from(schema.productCategories)
-            .where(eq(schema.productCategories.category_id, filter.categoryId));
+        if (categoryAssociations.length > 0) {
+          const productIds = categoryAssociations.map(pc => pc.product_id);
+          console.log('Product IDs in electronics:', productIds);
           
-          if (productCategories.length > 0) {
-            const productIds = productCategories.map(pc => pc.product_id);
-            query = query.where(inArray(schema.products.id, productIds));
-          } else {
-            // If no products in this category, return empty array early
-            console.log(`No products found in category ${filter.categoryId}`);
-            return [];
-          }
+          // Get these products
+          return await db.execute(
+            sql`SELECT * FROM products WHERE id IN (${sql.join(productIds, sql`, `)})`
+          );
         }
       }
       
-      // Execute the query
-      const products = await query;
+      // If filtered by status
+      if (filter?.status) {
+        return await db.execute(
+          sql`SELECT * FROM products WHERE status = ${filter.status}`
+        );
+      }
       
-      console.log(`Found ${products.length} products with filter:`, filter || "none");
-      console.log("Raw products from database:", products);
-      
-      return products;
+      // Return all products
+      return allProducts;
     } catch (error) {
-      console.error('Error in DbStorage.listProducts:', error);
+      console.error('CRITICAL ERROR in DbStorage.listProducts:', error);
       
-      // Query database directly as a fallback
+      // Last resort, manually query PostgreSQL pool
       try {
-        console.log('Trying direct database query as fallback...');
-        // Just get all products regardless of filter as a last resort
-        const products = await db.select().from(schema.products);
-        console.log(`Fallback found ${products.length} products`);
-        return products;
+        const result = await pool.query('SELECT * FROM products');
+        console.log('LAST RESORT QUERY found', result.rows.length, 'products');
+        return result.rows;
       } catch (fallbackError) {
-        console.error('CRITICAL: Even fallback query failed:', fallbackError);
+        console.error('ALL APPROACHES FAILED:', fallbackError);
         return [];
       }
     }

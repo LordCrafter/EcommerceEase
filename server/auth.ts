@@ -5,6 +5,7 @@ import session from "express-session";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { User, InsertUser, loginUserSchema } from "@shared/schema";
+import { pool } from "./db"; // Import PostgreSQL pool for direct query
 
 declare global {
   namespace Express {
@@ -23,6 +24,13 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   console.log("Setting up auth with sessionStore:", !!storage.sessionStore);
+  
+  // Check and log connection status
+  pool.query("SELECT 'AUTHENTICATION SYSTEM DATABASE TEST'").then(() => {
+    console.log("AUTH SYSTEM: Successfully connected to database");
+  }).catch(err => {
+    console.error("AUTH SYSTEM: Database connection error:", err);
+  });
   
   const sessionSettings: session.SessionOptions = {
     secret: "super-secret-key-for-development",
@@ -45,14 +53,45 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log(`AUTH DEBUG: Attempting login with username = "${username}"`);
+        console.log(`AUTH DEBUG: Attempting direct database query for user "${username}"`);
+        
+        // Try direct database query as fallback
+        try {
+          const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+          if (result.rows.length > 0) {
+            const dbUser = result.rows[0];
+            console.log('AUTH DEBUG: Found user directly from database:', dbUser.username);
+            
+            if (password === dbUser.password) {
+              console.log('AUTH DEBUG: Direct database password match successful');
+              return done(null, dbUser);
+            }
+          }
+        } catch (dbError) {
+          console.error('AUTH DEBUG: Direct database user lookup failed:', dbError);
+        }
+        
+        // Fall back to using the storage interface
         const user = await storage.getUserByUsername(username);
         
-        if (!user || !(await comparePasswords(password, user.password))) {
+        if (!user) {
+          console.log(`AUTH DEBUG: User "${username}" not found`);
           return done(null, false, { message: "Invalid username or password" });
         }
         
+        console.log(`AUTH DEBUG: Found user ${username}, comparing passwords`);
+        console.log(`AUTH DEBUG: Stored password = "${user.password}", supplied = "${password}"`);
+        
+        if (!(await comparePasswords(password, user.password))) {
+          console.log(`AUTH DEBUG: Password mismatch for user "${username}"`);
+          return done(null, false, { message: "Invalid username or password" });
+        }
+        
+        console.log(`AUTH DEBUG: Login successful for user "${username}"`);
         return done(null, user);
       } catch (error) {
+        console.error(`AUTH DEBUG: Login error for "${username}":`, error);
         return done(error);
       }
     }),

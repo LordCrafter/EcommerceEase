@@ -759,41 +759,23 @@ async function initMySqlStorage(): Promise<IStorage> {
   }
 }
 
-// Initialize storage based on selected database type
+// Use IIFE to initialize storage synchronously
 try {
-  switch (dbType) {
-    case 'mysql':
-      console.log('Using MySQL database storage');
-      storageInstance = new MemStorage(); // Temporary storage during async initialization
-      initMySqlStorage().then(storage => {
-        // Replace our storage reference with the properly initialized one
-        Object.assign(storageInstance, storage);
-      }).catch(error => {
-        console.error("Error during async MySQL initialization:", error);
-      });
-      break;
-    case 'postgres':
-      console.log('Using PostgreSQL database storage');
-      storageInstance = new MemStorage(); // Temporary storage during async initialization
-      initPostgresStorage().then(storage => {
-        // Replace our storage reference with the properly initialized one
-        Object.assign(storageInstance, storage);
-      }).catch(error => {
-        console.error("Error during async PostgreSQL initialization:", error);
-      });
-      break;
-    case 'memory':
-      console.log('Using in-memory storage by explicit configuration');
-      storageInstance = new MemStorage();
-      break;
-    default:
-      console.log('Using in-memory storage (default fallback)');
-      storageInstance = new MemStorage();
-  }
+  console.log('STORAGE DEBUG: Initializing storage with dbType =', dbType);
+  
+  // Force PostgreSQL for now (as requested by user)
+  console.log('STORAGE DEBUG: Forcing use of PostgreSQL database');
+  // Use PostgreSQL regardless of what dbType says
+  
+  // Create a proper instance of DbStorage with PostgreSQL
+  storageInstance = new DbStorage();
+  console.log('STORAGE DEBUG: Successfully created PostgreSQL DbStorage');
+  
 } catch (error) {
-  console.error("Error initializing storage:", error);
-  console.log('Falling back to in-memory storage due to initialization error');
+  console.error("CRITICAL ERROR initializing storage:", error);
+  console.log('STORAGE DEBUG: Falling back to in-memory storage due to initialization error');
   storageInstance = new MemStorage();
 }
 
 export const storage = storageInstance;
+console.log('STORAGE DEBUG: Exported storage type is:', storage.constructor.name);
