@@ -64,11 +64,27 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  
+  // Get the hostname - use 'localhost' for local development to avoid ENOTSUP errors
+  const isLocalDev = process.env.NODE_ENV === 'development' && 
+                     (!process.env.REPL_SLUG && !process.env.REPL_ID);
+  const hostname = isLocalDev ? 'localhost' : '0.0.0.0';
+  
+  try {
+    // First try with the detailed configuration
+    server.listen({
+      port,
+      host: hostname,
+      reusePort: true,
+    }, () => {
+      log(`serving on ${hostname}:${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server with initial settings, trying fallback:', error);
+    
+    // If the first attempt fails (which can happen locally), try simplified approach
+    server.listen(port, () => {
+      log(`serving on port ${port} with fallback configuration`);
+    });
+  }
 })();
