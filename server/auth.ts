@@ -25,12 +25,28 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   console.log("Setting up auth with sessionStore:", !!storage.sessionStore);
   
-  // Check and log connection status
-  pool.query("SELECT 'AUTHENTICATION SYSTEM DATABASE TEST'").then(() => {
-    console.log("AUTH SYSTEM: Successfully connected to database");
-  }).catch(err => {
-    console.error("AUTH SYSTEM: Database connection error:", err);
-  });
+  // Check database type and use appropriate connection check
+  try {
+    const dbType = process.env.DB_TYPE || 'postgres';
+    
+    if (dbType === 'postgres') {
+      // Only try to query PostgreSQL if it's the selected database type
+      pool.query("SELECT 'AUTHENTICATION SYSTEM DATABASE TEST'").then(() => {
+        console.log("AUTH SYSTEM: Successfully connected to PostgreSQL database");
+      }).catch(err => {
+        console.error("AUTH SYSTEM: PostgreSQL database connection error:", err);
+        console.log("AUTH SYSTEM: Using storage interface for authentication");
+      });
+    } else if (dbType === 'mysql') {
+      // For MySQL, we don't need to test connection here as it's handled in mysql-db.ts
+      console.log("AUTH SYSTEM: Using MySQL database for authentication");
+    } else {
+      console.log("AUTH SYSTEM: Using in-memory storage for authentication");
+    }
+  } catch (error) {
+    console.error("AUTH SYSTEM: Error checking database type:", error);
+    console.log("AUTH SYSTEM: Falling back to storage interface for authentication");
+  }
   
   const sessionSettings: session.SessionOptions = {
     secret: "super-secret-key-for-development",
@@ -56,17 +72,26 @@ export function setupAuth(app: Express) {
         console.log(`AUTH DEBUG: Attempting login with username = "${username}"`);
         console.log(`AUTH DEBUG: Attempting direct database query for user "${username}"`);
         
-        // Try direct database query as fallback
+        // Try direct database query as fallback based on DB_TYPE
+        const dbType = process.env.DB_TYPE || 'postgres';
+        
         try {
-          const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-          if (result.rows.length > 0) {
-            const dbUser = result.rows[0];
-            console.log('AUTH DEBUG: Found user directly from database:', dbUser.username);
-            
-            if (password === dbUser.password) {
-              console.log('AUTH DEBUG: Direct database password match successful');
-              return done(null, dbUser);
+          if (dbType === 'postgres') {
+            // PostgreSQL query with parameterized query using $1 syntax
+            const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+            if (result.rows && result.rows.length > 0) {
+              const dbUser = result.rows[0];
+              console.log('AUTH DEBUG: Found user directly from PostgreSQL database:', dbUser.username);
+              
+              if (password === dbUser.password) {
+                console.log('AUTH DEBUG: Direct PostgreSQL database password match successful');
+                return done(null, dbUser);
+              }
             }
+          } else {
+            // For MySQL and other database types, don't try direct query
+            // as the query format is different. Use storage interface instead.
+            console.log('AUTH DEBUG: Skipping direct database query for non-PostgreSQL database');
           }
         } catch (dbError) {
           console.error('AUTH DEBUG: Direct database user lookup failed:', dbError);
