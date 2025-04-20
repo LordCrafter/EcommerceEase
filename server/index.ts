@@ -65,26 +65,17 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = 5000;
   
-  // Get the hostname - use 'localhost' for local development to avoid ENOTSUP errors
-  const isLocalDev = process.env.NODE_ENV === 'development' && 
-                     (!process.env.REPL_SLUG && !process.env.REPL_ID);
-  const hostname = isLocalDev ? 'localhost' : '0.0.0.0';
+  // Since we're on Replit, always use 0.0.0.0 here
+  // For local execution, users will need to modify this value manually
+  // This ensures the app works correctly on Replit
+  const hostname = '0.0.0.0';
   
-  try {
-    // First try with the detailed configuration
-    server.listen({
-      port,
-      host: hostname,
-      reusePort: true,
-    }, () => {
-      log(`serving on ${hostname}:${port}`);
-    });
-  } catch (error) {
-    console.error('Failed to start server with initial settings, trying fallback:', error);
-    
-    // If the first attempt fails (which can happen locally), try simplified approach
-    server.listen(port, () => {
-      log(`serving on port ${port} with fallback configuration`);
-    });
-  }
+  // Use the standard configuration that works on Replit
+  server.listen({
+    port,
+    host: hostname,
+    reusePort: true,
+  }, () => {
+    log(`serving on ${hostname}:${port}`);
+  });
 })();
