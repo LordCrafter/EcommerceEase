@@ -164,71 +164,68 @@ export class DbStorage implements IStorage {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      // ULTIMATE FIX APPROACH: Make a direct SQL-based query that mirrors our verification script
-      // This completely bypasses all the previous filtering logic that wasn't working
+      // EMERGENCY HOTFIX: Bypass all Drizzle building and directly query the database
       
       if (filter?.categoryId) {
-        console.log(`DIRECT APPROACH: Getting products with category filter: ${filter.categoryId}`);
+        console.log(`EMERGENCY APPROACH: Getting products with category filter: ${filter.categoryId}`);
         
-        // Build a query that gets products in this category
-        let query = db.select({
-          product: schema.products
-        })
-        .from(schema.products)
-        .innerJoin(
-          schema.productCategories,
-          eq(schema.products.id, schema.productCategories.product_id)
-        )
-        .where(eq(schema.productCategories.category_id, filter.categoryId));
+        // Direct SQL query to get products by category
+        const sql = `
+          SELECT p.* 
+          FROM products p
+          INNER JOIN product_categories pc ON p.id = pc.product_id
+          WHERE pc.category_id = ${filter.categoryId}
+          ${filter.status ? `AND p.status = '${filter.status}'` : ''}
+          ${filter.sellerId ? `AND p.seller_id = ${filter.sellerId}` : ''}
+        `;
         
-        // Add status filter if needed
-        if (filter.status) {
-          query = query.where(eq(schema.products.status, filter.status));
-        }
+        console.log("Executing raw SQL:", sql);
         
-        // Add seller filter if needed
-        if (filter.sellerId) {
-          query = query.where(eq(schema.products.seller_id, filter.sellerId));
-        }
+        // Execute direct query via the pool
+        const result = await pool.query(sql);
+        const products = result.rows;
         
-        // Execute query
-        const result = await query;
-        const products = result.map(row => row.product);
-        
-        console.log(`DIRECT QUERY found ${products.length} products in category ${filter.categoryId}`);
+        console.log(`RAW SQL QUERY found ${products.length} products in category ${filter.categoryId}`);
         if (products.length > 0) {
           console.log("Found these products:");
           products.forEach(p => console.log(` - ${p.id}: ${p.name} (${p.status})`));
         }
         
-        return products;
+        return products as unknown as Product[];
       } 
       else {
         // Simple query without category filtering
-        console.log('DIRECT APPROACH: Getting products without category filter');
+        console.log('EMERGENCY APPROACH: Getting products without category filter');
         
-        let query = db.select().from(schema.products);
+        let whereClause = '';
+        const conditions = [];
         
-        // Add status filter if needed
         if (filter?.status) {
-          query = query.where(eq(schema.products.status, filter.status));
+          conditions.push(`status = '${filter.status}'`);
         }
         
-        // Add seller filter if needed
         if (filter?.sellerId) {
-          query = query.where(eq(schema.products.seller_id, filter.sellerId));
+          conditions.push(`seller_id = ${filter.sellerId}`);
         }
         
-        // Execute query
-        const products = await query;
+        if (conditions.length > 0) {
+          whereClause = `WHERE ${conditions.join(' AND ')}`;
+        }
         
-        console.log(`DIRECT QUERY found ${products.length} products with basic filters`);
+        const sql = `SELECT * FROM products ${whereClause}`;
+        console.log("Executing raw SQL:", sql);
+        
+        // Execute direct query
+        const result = await pool.query(sql);
+        const products = result.rows;
+        
+        console.log(`RAW SQL QUERY found ${products.length} products with basic filters`);
         if (products.length > 0) {
           console.log("Found these products:");
           products.forEach(p => console.log(` - ${p.id}: ${p.name} (${p.status})`));
         }
         
-        return products;
+        return products as unknown as Product[];
       }
     } catch (error) {
       console.error('CRITICAL ERROR in DbStorage.listProducts:', error);
