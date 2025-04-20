@@ -164,70 +164,71 @@ export class DbStorage implements IStorage {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      // For debugging: use safer approach with ORM
-      try {
-        // Try with ORM - this should be safer and avoid import errors
-        const products = await db.select().from(schema.products);
-        console.log(`ORM query found total products in database: ${products.length}`);
+      // Let's use direct query for debugging first
+      const allProducts = await db.select().from(schema.products);
+      console.log(`DEBUG: Database has ${allProducts.length} total products:`);
+      allProducts.forEach(p => {
+        console.log(`DEBUG: Product ${p.id}: ${p.name}, Status: ${p.status}, Seller: ${p.seller_id}`);
+      });
+
+      // Load all category associations for debugging
+      const allAssociations = await db.select().from(schema.productCategories);
+      console.log(`DEBUG: Database has ${allAssociations.length} product-category associations`);
+      allAssociations.forEach(assoc => {
+        console.log(`DEBUG: Association: Product ${assoc.product_id} in Category ${assoc.category_id}`);
+      });
+      
+      // If no filter, return all products
+      if (!filter || Object.keys(filter).length === 0) {
+        return allProducts;
+      }
+      
+      // Start with a base query that we'll build on
+      let query = db.select().from(schema.products);
+      let hasFilter = false;
+      
+      // Apply filters in query
+      if (filter.sellerId !== undefined) {
+        console.log(`Filtering by seller_id: ${filter.sellerId}`);
+        query = query.where(eq(schema.products.seller_id, filter.sellerId));
+        hasFilter = true;
+      }
+      
+      if (filter.status !== undefined) {
+        console.log(`Filtering by status: ${filter.status}`);
+        query = query.where(eq(schema.products.status, filter.status));
+        hasFilter = true;
+      }
+      
+      // First get products with other filters
+      let products = hasFilter ? await query : allProducts;
+      console.log(`After basic filters: found ${products.length} products`);
+      
+      // Then filter by category if needed
+      if (filter.categoryId !== undefined) {
+        console.log(`Filtering by category_id: ${filter.categoryId}`);
         
-        // If we have products but our filtered query returns none, this will help debug
-        if (products.length > 0) {
-          console.log('First product properties:');
-          for (const [key, value] of Object.entries(products[0])) {
-            console.log(`- ${key}: ${value} (type: ${typeof value})`);
-          }
+        // Get product IDs in this category
+        const categoryProducts = await db.select()
+          .from(schema.productCategories)
+          .where(eq(schema.productCategories.category_id, filter.categoryId));
+        
+        console.log(`Found ${categoryProducts.length} products in category ${filter.categoryId}`);
+        
+        if (categoryProducts.length > 0) {
+          // Extract product IDs from the associations
+          const productIdsInCategory = categoryProducts.map(pc => pc.product_id);
+          console.log('Product IDs in this category:', productIdsInCategory);
           
-          console.log('All found products:');
-          products.forEach(p => {
-            console.log(`- ID: ${p.id}, Name: ${p.name}, Status: ${p.status}, Seller ID: ${p.seller_id}`);
-          });
-        }
-      } catch (err) {
-        console.error('Error querying products table:', err);
-      }
-      
-      // Create the base query
-      let products = await db.select().from(schema.products);
-      console.log(`Initial products query returned ${products.length} products`);
-      
-      // Apply filters manually instead of using query builder
-      if (filter) {
-        if (filter.sellerId !== undefined) {
-          console.log(`Filtering by seller_id: ${filter.sellerId}`);
-          products = products.filter(p => p.seller_id === filter.sellerId);
-        }
-        
-        if (filter.status !== undefined) {
-          console.log(`Filtering by status: ${filter.status}`);
-          products = products.filter(p => p.status === filter.status);
-          console.log(`After status filter: ${products.length} products`);
-        }
-        
-        if (filter.categoryId !== undefined) {
-          console.log(`Filtering by category_id: ${filter.categoryId}`);
-          try {
-            // Find all product IDs in this category
-            const productCategories = await db.select()
-              .from(schema.productCategories)
-              .where(eq(schema.productCategories.category_id, filter.categoryId));
-            
-            console.log(`Found ${productCategories.length} product-category relationships for category ${filter.categoryId}`);
-            
-            if (productCategories.length > 0) {
-              const productIds = productCategories.map(pc => pc.product_id);
-              console.log('Product IDs in this category:', productIds);
-              products = products.filter(p => productIds.includes(p.id));
-            } else {
-              console.log('No products in this category, returning empty array');
-              return []; // No products in this category
-            }
-          } catch (err) {
-            console.error('Error filtering by category:', err);
-          }
+          // Filter to only include products in this category
+          products = products.filter(p => productIdsInCategory.includes(p.id));
+        } else {
+          // No products in this category
+          return [];
         }
       }
       
-      console.log(`Returning ${products.length} products:`, products);
+      console.log(`Returning ${products.length} products`);
       return products;
     } catch (error) {
       console.error('Error in DbStorage.listProducts:', error);

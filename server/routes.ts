@@ -116,11 +116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log('Fetching products with filter:', filter);
         
-        // Disable filter temporarily for testing
-        products = await storage.listProducts({}); // Fetch all products without filter
-        console.log(`Found ${products.length} products without filtering`);
-        
-        // No need for direct approach as it causes the same error
+        // Apply the filter to fetch products
+        products = await storage.listProducts(filter);
+        console.log(`Found ${products.length} products with filter: ${JSON.stringify(filter)}`)
       }
       
       console.log('Raw products from database:', products);
