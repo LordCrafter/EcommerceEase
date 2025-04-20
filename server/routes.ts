@@ -100,6 +100,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('GET /api/products query params:', { sellerId, categoryId, status, search });
       
+      // TEMPORARY: Direct database check for debugging
+      try {
+        const { pool } = require('./db'); // Import db directly
+        const rawProducts = await pool.query('SELECT * FROM products');
+        console.log('Direct SQL query results:', rawProducts.rows);
+      } catch (sqlError) {
+        console.error('Error executing direct SQL query:', sqlError);
+      }
+      
       let products = [];
       
       if (search) {
@@ -113,8 +122,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (status) filter.status = status as string;
         
         console.log('Fetching products with filter:', filter);
-        products = await storage.listProducts(filter);
-        console.log(`Found ${products.length} products`);
+        
+        // Disable filter temporarily for testing
+        products = await storage.listProducts({}); // Fetch all products without filter
+        console.log(`Found ${products.length} products without filtering`);
+        
+        // If we still don't have products, try a more direct approach
+        if (products.length === 0) {
+          try {
+            // Try SQL approach
+            const { pool } = require('./db');
+            const result = await pool.query('SELECT * FROM products');
+            console.log('Direct pool query found:', result.rows);
+            products = result.rows;
+          } catch (directError) {
+            console.error('Error with direct query:', directError);
+          }
+        }
       }
       
       console.log('Raw products from database:', products);
@@ -122,12 +146,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enhance products with category information
       const enhancedProducts = await Promise.all(
         products.map(async (product) => {
-          const categories = await storage.getProductCategories(product.id);
-          console.log(`Product ${product.id} has ${categories.length} categories`);
-          return {
-            ...product,
-            categories
-          };
+          try {
+            const categories = await storage.getProductCategories(product.id);
+            console.log(`Product ${product.id} has ${categories.length} categories`);
+            return {
+              ...product,
+              categories
+            };
+          } catch (error) {
+            console.error(`Error enhancing product ${product.id}:`, error);
+            return {
+              ...product,
+              categories: []
+            };
+          }
         })
       );
       
