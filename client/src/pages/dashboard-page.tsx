@@ -39,9 +39,20 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <h1 className="text-2xl font-bold text-red-500 mb-4">Access Denied</h1>
-        <p className="text-gray-600">
+        <p className="text-gray-600 mb-4">
           You don't have permission to access this page.
         </p>
+        <div className="max-w-md text-center bg-blue-50 p-4 rounded-lg border border-blue-200 text-sm">
+          <p className="font-medium text-blue-700 mb-2">Account Information</p>
+          <p className="mb-2">Your current role: <span className="font-bold">{user?.role || 'Not logged in'}</span></p>
+          <p className="mb-4">The dashboard is only accessible to users with <span className="font-bold">seller</span> or <span className="font-bold">admin</span> roles.</p>
+          <button
+            onClick={() => navigate("/")}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            Return to Home
+          </button>
+        </div>
       </div>
     );
   }

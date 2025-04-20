@@ -110,7 +110,9 @@ export default function Navigation() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Account</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      Account ({user.role})
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {user.role === "customer" && (
                       <>
@@ -195,6 +197,9 @@ export default function Navigation() {
                         <div className="px-2 py-4 border-b">
                           <p className="text-sm text-gray-500">Signed in as</p>
                           <p className="font-medium">{user.name || user.username}</p>
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-xs rounded-full text-gray-600">
+                            Role: {user.role}
+                          </span>
                         </div>
                         
                         {(user.role === "seller" || user.role === "admin") && (
