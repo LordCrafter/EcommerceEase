@@ -164,17 +164,24 @@ export class DbStorage implements IStorage {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      // First, let's directly query the products table to see what's there
-      const allProducts = await db.select().from(schema.products);
-      console.log(`Total products in database: ${allProducts.length}`);
-      console.log('All products with detailed view:', JSON.stringify(allProducts, null, 2));
-      
-      // If we have products but our filtered query returns none, this will help debug
-      if (allProducts.length > 0) {
-        console.log('First product properties:');
-        for (const [key, value] of Object.entries(allProducts[0])) {
-          console.log(`- ${key}: ${value} (type: ${typeof value})`);
+      // First, let's directly query the products table with raw SQL to see what's there
+      try {
+        const rawProducts = await db.$executeRaw`SELECT * FROM products`;
+        console.log(`Raw SQL query found ${rawProducts} rows in products table`);
+        
+        const allProducts = await db.select().from(schema.products);
+        console.log(`ORM query found total products in database: ${allProducts.length}`);
+        console.log('All products with detailed view:', JSON.stringify(allProducts, null, 2));
+        
+        // If we have products but our filtered query returns none, this will help debug
+        if (allProducts.length > 0) {
+          console.log('First product properties:');
+          for (const [key, value] of Object.entries(allProducts[0])) {
+            console.log(`- ${key}: ${value} (type: ${typeof value})`);
+          }
         }
+      } catch (err) {
+        console.error('Error querying products table:', err);
       }
       
       // Create the base query
