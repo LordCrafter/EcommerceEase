@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hasRole } from "./auth";
+import { eq } from "drizzle-orm";
 import {
   insertProductSchema,
   insertCartItemSchema,
