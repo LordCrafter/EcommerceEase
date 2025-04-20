@@ -161,33 +161,54 @@ export class DbStorage implements IStorage {
   }
 
   async listProducts(filter?: { sellerId?: number, categoryId?: number, status?: string }): Promise<Product[]> {
-    let query = db.select().from(schema.products);
+    console.log('DbStorage.listProducts called with filter:', filter);
     
-    if (filter) {
-      if (filter.sellerId !== undefined) {
-        query = query.where(eq(schema.products.seller_id, filter.sellerId));
-      }
+    try {
+      // First, let's directly query the products table to see what's there
+      const allProducts = await db.select().from(schema.products);
+      console.log(`Total products in database: ${allProducts.length}`);
+      console.log('All products:', allProducts);
       
-      if (filter.status !== undefined) {
-        query = query.where(eq(schema.products.status, filter.status));
-      }
+      let query = db.select().from(schema.products);
       
-      if (filter.categoryId !== undefined) {
-        // Find all product IDs in this category
-        const productCategories = await db.select()
-          .from(schema.productCategories)
-          .where(eq(schema.productCategories.category_id, filter.categoryId));
+      if (filter) {
+        if (filter.sellerId !== undefined) {
+          console.log(`Filtering by seller_id: ${filter.sellerId}`);
+          query = query.where(eq(schema.products.seller_id, filter.sellerId));
+        }
         
-        if (productCategories.length > 0) {
-          const productIds = productCategories.map(pc => pc.product_id);
-          query = query.where(inArray(schema.products.id, productIds));
-        } else {
-          return []; // No products in this category
+        if (filter.status !== undefined) {
+          console.log(`Filtering by status: ${filter.status}`);
+          query = query.where(eq(schema.products.status, filter.status));
+        }
+        
+        if (filter.categoryId !== undefined) {
+          console.log(`Filtering by category_id: ${filter.categoryId}`);
+          // Find all product IDs in this category
+          const productCategories = await db.select()
+            .from(schema.productCategories)
+            .where(eq(schema.productCategories.category_id, filter.categoryId));
+          
+          console.log(`Found ${productCategories.length} product-category relationships for category ${filter.categoryId}`);
+          
+          if (productCategories.length > 0) {
+            const productIds = productCategories.map(pc => pc.product_id);
+            console.log('Product IDs in this category:', productIds);
+            query = query.where(inArray(schema.products.id, productIds));
+          } else {
+            console.log('No products in this category, returning empty array');
+            return []; // No products in this category
+          }
         }
       }
+      
+      const products = await query;
+      console.log(`Query returned ${products.length} products:`, products);
+      return products;
+    } catch (error) {
+      console.error('Error in DbStorage.listProducts:', error);
+      throw error;
     }
-    
-    return await query;
   }
 
   async searchProducts(query: string): Promise<Product[]> {

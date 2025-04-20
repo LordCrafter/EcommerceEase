@@ -98,9 +98,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { sellerId, categoryId, status, search } = req.query;
       
+      console.log('GET /api/products query params:', { sellerId, categoryId, status, search });
+      
       let products = [];
       
       if (search) {
+        console.log(`Searching for products with query: ${search}`);
         products = await storage.searchProducts(search as string);
       } else {
         const filter: any = {};
@@ -109,13 +112,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (categoryId) filter.categoryId = parseInt(categoryId as string);
         if (status) filter.status = status as string;
         
+        console.log('Fetching products with filter:', filter);
         products = await storage.listProducts(filter);
+        console.log(`Found ${products.length} products`);
       }
+      
+      console.log('Raw products from database:', products);
       
       // Enhance products with category information
       const enhancedProducts = await Promise.all(
         products.map(async (product) => {
           const categories = await storage.getProductCategories(product.id);
+          console.log(`Product ${product.id} has ${categories.length} categories`);
           return {
             ...product,
             categories
@@ -123,8 +131,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
+      console.log(`Sending ${enhancedProducts.length} enhanced products`);
       res.json(enhancedProducts);
     } catch (error) {
+      console.error('Error in GET /api/products:', error);
       next(error);
     }
   });
