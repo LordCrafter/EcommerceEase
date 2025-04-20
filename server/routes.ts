@@ -100,14 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('GET /api/products query params:', { sellerId, categoryId, status, search });
       
-      // TEMPORARY: Direct database check for debugging
-      try {
-        const { pool } = require('./db'); // Import db directly
-        const rawProducts = await pool.query('SELECT * FROM products');
-        console.log('Direct SQL query results:', rawProducts.rows);
-      } catch (sqlError) {
-        console.error('Error executing direct SQL query:', sqlError);
-      }
+      // TEMPORARY: Direct database check for debugging removed - causing errors
       
       let products = [];
       
@@ -127,18 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         products = await storage.listProducts({}); // Fetch all products without filter
         console.log(`Found ${products.length} products without filtering`);
         
-        // If we still don't have products, try a more direct approach
-        if (products.length === 0) {
-          try {
-            // Try SQL approach
-            const { pool } = require('./db');
-            const result = await pool.query('SELECT * FROM products');
-            console.log('Direct pool query found:', result.rows);
-            products = result.rows;
-          } catch (directError) {
-            console.error('Error with direct query:', directError);
-          }
-        }
+        // No need for direct approach as it causes the same error
       }
       
       console.log('Raw products from database:', products);

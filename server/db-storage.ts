@@ -164,13 +164,9 @@ export class DbStorage implements IStorage {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      // For debugging: directly query the products table with pool
+      // For debugging: use safer approach with ORM
       try {
-        const { pool } = require('./db');
-        const rawResult = await pool.query('SELECT * FROM products');
-        console.log(`Raw SQL query found ${rawResult.rows.length} products:`, rawResult.rows);
-        
-        // Also try with ORM
+        // Try with ORM - this should be safer and avoid import errors
         const products = await db.select().from(schema.products);
         console.log(`ORM query found total products in database: ${products.length}`);
         
@@ -180,6 +176,11 @@ export class DbStorage implements IStorage {
           for (const [key, value] of Object.entries(products[0])) {
             console.log(`- ${key}: ${value} (type: ${typeof value})`);
           }
+          
+          console.log('All found products:');
+          products.forEach(p => {
+            console.log(`- ID: ${p.id}, Name: ${p.name}, Status: ${p.status}, Seller ID: ${p.seller_id}`);
+          });
         }
       } catch (err) {
         console.error('Error querying products table:', err);
