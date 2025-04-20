@@ -694,7 +694,15 @@ export class MemStorage implements IStorage {
 }
 
 import { DbStorage } from "./db-storage";
+import { MySqlStorage } from "./mysql-storage";
 
 // Choose which storage implementation to use based on environment
-const useDbStorage = process.env.DATABASE_URL !== undefined;
-export const storage = useDbStorage ? new DbStorage() : new MemStorage();
+const useDbStorage = process.env.DATABASE_URL !== undefined; // PostgreSQL
+const useMySqlStorage = process.env.MYSQL_DATABASE !== undefined; // MySQL
+
+// Prioritize MySQL if both are available
+export const storage = useMySqlStorage 
+  ? new MySqlStorage() 
+  : useDbStorage 
+    ? new DbStorage() 
+    : new MemStorage();

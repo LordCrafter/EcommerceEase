@@ -8,9 +8,9 @@ import {
   Order, InsertOrder, OrderItem, InsertOrderItem,
   Payment, InsertPayment, Shipment, InsertShipment,
   Review, InsertReview
-} from "@shared/schema";
+} from "@shared/mysql-schema";
 import { db, pool } from "./mysql-db";
-import * as schema from "@shared/schema";
+import * as schema from "@shared/mysql-schema";
 import { and, eq, like, inArray, or } from "drizzle-orm";
 import { IStorage } from "./storage";
 
