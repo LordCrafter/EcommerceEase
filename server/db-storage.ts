@@ -32,23 +32,28 @@ export class DbStorage implements IStorage {
   }
 
   private async initializeData() {
-    // Check if categories exist, if not create sample categories
-    const existingCategories = await db.select().from(schema.categories);
-    
-    if (existingCategories.length === 0) {
-      const categories = [
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Electronics" },
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Clothing" },
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Home & Kitchen" },
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Books" },
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Beauty" },
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Sports" },
-        { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Toys" }
-      ];
+    try {
+      // Check if categories exist, if not create sample categories
+      const existingCategories = await db.select().from(schema.categories);
       
-      for (const category of categories) {
-        await this.createCategory(category);
+      if (existingCategories.length === 0) {
+        const categories = [
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Electronics" },
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Clothing" },
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Home & Kitchen" },
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Books" },
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Beauty" },
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Sports" },
+          { category_id: `CAT-${randomUUID().slice(0, 8)}`, category_name: "Toys" }
+        ];
+        
+        for (const category of categories) {
+          await this.createCategory(category);
+        }
       }
+    } catch (error) {
+      console.error("Failed to initialize database:", error);
+      // Continue even if initialization fails - the app will work with empty data
     }
   }
 
