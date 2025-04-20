@@ -763,13 +763,22 @@ async function initMySqlStorage(): Promise<IStorage> {
 try {
   console.log('STORAGE DEBUG: Initializing storage with dbType =', dbType);
   
-  // Force PostgreSQL for now (as requested by user)
-  console.log('STORAGE DEBUG: Forcing use of PostgreSQL database');
-  // Use PostgreSQL regardless of what dbType says
+  // Initialize storage based on the selected database type
+  if (dbType === 'postgres') {
+    console.log('STORAGE DEBUG: Using PostgreSQL database');
+    storageInstance = new DbStorage();
+    console.log('STORAGE DEBUG: Successfully created PostgreSQL DbStorage');
+  } else if (dbType === 'mysql') {
+    console.log('STORAGE DEBUG: Using MySQL database');
+    storageInstance = new MySqlStorage();
+    console.log('STORAGE DEBUG: Successfully created MySQL storage');
+  } else {
+    console.log('STORAGE DEBUG: Using in-memory storage');
+    storageInstance = new MemStorage();
+    console.log('STORAGE DEBUG: Successfully created in-memory storage');
+  }
   
-  // Create a proper instance of DbStorage with PostgreSQL
-  storageInstance = new DbStorage();
-  console.log('STORAGE DEBUG: Successfully created PostgreSQL DbStorage');
+  console.log('STORAGE DEBUG: Exported storage type is:', storageInstance.constructor.name);
   
 } catch (error) {
   console.error("CRITICAL ERROR initializing storage:", error);
