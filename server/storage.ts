@@ -695,14 +695,26 @@ export class MemStorage implements IStorage {
 
 import { DbStorage } from "./db-storage";
 import { MySqlStorage } from "./mysql-storage";
+import { getDatabaseType } from "./config";
 
-// Choose which storage implementation to use based on environment
-const useDbStorage = process.env.DATABASE_URL !== undefined; // PostgreSQL
-const useMySqlStorage = process.env.MYSQL_DATABASE !== undefined; // MySQL
+// Choose which storage implementation to use based on configuration
+const dbType = getDatabaseType();
 
-// Prioritize MySQL if both are available
-export const storage = useMySqlStorage 
-  ? new MySqlStorage() 
-  : useDbStorage 
-    ? new DbStorage() 
-    : new MemStorage();
+// Create the appropriate storage instance based on database type
+let storageInstance: IStorage;
+
+switch (dbType) {
+  case 'mysql':
+    console.log('Using MySQL database storage');
+    storageInstance = new MySqlStorage();
+    break;
+  case 'postgres':
+    console.log('Using PostgreSQL database storage');
+    storageInstance = new DbStorage();
+    break;
+  default:
+    console.log('Using in-memory storage');
+    storageInstance = new MemStorage();
+}
+
+export const storage = storageInstance;
