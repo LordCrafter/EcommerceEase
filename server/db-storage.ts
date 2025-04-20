@@ -167,43 +167,57 @@ export class DbStorage implements IStorage {
       // First, let's directly query the products table to see what's there
       const allProducts = await db.select().from(schema.products);
       console.log(`Total products in database: ${allProducts.length}`);
-      console.log('All products:', allProducts);
+      console.log('All products with detailed view:', JSON.stringify(allProducts, null, 2));
       
-      let query = db.select().from(schema.products);
+      // If we have products but our filtered query returns none, this will help debug
+      if (allProducts.length > 0) {
+        console.log('First product properties:');
+        for (const [key, value] of Object.entries(allProducts[0])) {
+          console.log(`- ${key}: ${value} (type: ${typeof value})`);
+        }
+      }
       
+      // Create the base query
+      let products = allProducts;
+      
+      // Apply filters manually instead of using query builder
       if (filter) {
         if (filter.sellerId !== undefined) {
           console.log(`Filtering by seller_id: ${filter.sellerId}`);
-          query = query.where(eq(schema.products.seller_id, filter.sellerId));
+          products = products.filter(p => p.seller_id === filter.sellerId);
         }
         
         if (filter.status !== undefined) {
           console.log(`Filtering by status: ${filter.status}`);
-          query = query.where(eq(schema.products.status, filter.status));
+          products = products.filter(p => p.status === filter.status);
+          console.log(`After status filter: ${products.length} products`);
         }
         
         if (filter.categoryId !== undefined) {
           console.log(`Filtering by category_id: ${filter.categoryId}`);
-          // Find all product IDs in this category
-          const productCategories = await db.select()
-            .from(schema.productCategories)
-            .where(eq(schema.productCategories.category_id, filter.categoryId));
-          
-          console.log(`Found ${productCategories.length} product-category relationships for category ${filter.categoryId}`);
-          
-          if (productCategories.length > 0) {
-            const productIds = productCategories.map(pc => pc.product_id);
-            console.log('Product IDs in this category:', productIds);
-            query = query.where(inArray(schema.products.id, productIds));
-          } else {
-            console.log('No products in this category, returning empty array');
-            return []; // No products in this category
+          try {
+            // Find all product IDs in this category
+            const productCategories = await db.select()
+              .from(schema.productCategories)
+              .where(eq(schema.productCategories.category_id, filter.categoryId));
+            
+            console.log(`Found ${productCategories.length} product-category relationships for category ${filter.categoryId}`);
+            
+            if (productCategories.length > 0) {
+              const productIds = productCategories.map(pc => pc.product_id);
+              console.log('Product IDs in this category:', productIds);
+              products = products.filter(p => productIds.includes(p.id));
+            } else {
+              console.log('No products in this category, returning empty array');
+              return []; // No products in this category
+            }
+          } catch (err) {
+            console.error('Error filtering by category:', err);
           }
         }
       }
       
-      const products = await query;
-      console.log(`Query returned ${products.length} products:`, products);
+      console.log(`Returning ${products.length} products:`, products);
       return products;
     } catch (error) {
       console.error('Error in DbStorage.listProducts:', error);
