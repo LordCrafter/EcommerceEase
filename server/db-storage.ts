@@ -9,9 +9,9 @@ import {
   Payment, InsertPayment, Shipment, InsertShipment,
   Review, InsertReview
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import * as schema from "@shared/schema";
-import { and, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { IStorage } from "./storage";
 import { Pool } from "@neondatabase/serverless";
 
@@ -160,60 +160,72 @@ export class DbStorage implements IStorage {
     return true;
   }
 
+  // Create a dedicated database pool for this instance
+  private dbPool = new Pool({ connectionString: process.env.DATABASE_URL });
+  
   async listProducts(filter?: { sellerId?: number, categoryId?: number, status?: string }): Promise<Product[]> {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      // ULTRA SIMPLE APPROACH: Just get all products directly from database
-      console.log('Getting ALL products directly from database');
+      // Go back to basics and just use good old SQL
+      const result = await this.dbPool.query('SELECT * FROM products');
+      console.log(`DIRECT SQL QUERY: Found ${result.rows.length} products`);
       
-      // First, check if there are any products at all
-      const allProducts = await db.execute(sql`SELECT * FROM products`);
-      console.log(`DIRECT SQL: Found ${allProducts.length} total products in database`);
+      // Convert raw rows to Product objects
+      const products = result.rows.map(row => ({
+        id: row.id,
+        name: row.name, 
+        product_id: row.product_id,
+        status: row.status,
+        description: row.description,
+        price: row.price,
+        stock: row.stock,
+        seller_id: row.seller_id,
+        image_url: row.image_url,
+        added_date: row.added_date,
+        last_updated: row.last_updated
+      })) as Product[];
       
-      if (filter?.categoryId !== undefined) {
-        console.log('SPECIAL DEBUG FOR ELECTRONICS CATEGORY');
-        // Direct check for the category
-        const allProductsCheck = await db.execute(sql`SELECT * FROM products`);
-        console.log(`DEBUG: Found ${allProductsCheck.length} total products directly from database`);
-        
-        const categoryAssociations = await db.execute(
-          sql`SELECT * FROM product_categories WHERE category_id = ${filter.categoryId}`
-        );
-        console.log(`DEBUG: Found ${categoryAssociations.length} associations for Electronics category`);
-        
-        if (categoryAssociations.length > 0) {
-          const productIds = categoryAssociations.map(pc => pc.product_id);
-          console.log('Product IDs in electronics:', productIds);
-          
-          // Get these products
-          return await db.execute(
-            sql`SELECT * FROM products WHERE id IN (${sql.join(productIds, sql`, `)})`
+      console.log(`Found ${products.length} products from database`);
+      
+      // Apply filters (if needed)
+      let filteredProducts = [...products];
+      
+      if (filter?.sellerId) {
+        filteredProducts = filteredProducts.filter(p => p.seller_id === filter.sellerId);
+      }
+      
+      if (filter?.status) {
+        filteredProducts = filteredProducts.filter(p => p.status === filter.status);
+      }
+      
+      if (filter?.categoryId) {
+        try {
+          // Get product IDs for this category
+          const categoryResult = await this.dbPool.query(
+            'SELECT product_id FROM product_categories WHERE category_id = $1', 
+            [filter.categoryId]
           );
+          
+          const productIds = categoryResult.rows.map(row => row.product_id);
+          console.log('Category product IDs:', productIds);
+          
+          if (productIds.length > 0) {
+            filteredProducts = filteredProducts.filter(p => productIds.includes(p.id));
+          } else {
+            return []; // No products in this category
+          }
+        } catch (error) {
+          console.error('Error filtering by category:', error);
+          // Continue with the current list if there's an error
         }
       }
       
-      // If filtered by status
-      if (filter?.status) {
-        return await db.execute(
-          sql`SELECT * FROM products WHERE status = ${filter.status}`
-        );
-      }
-      
-      // Return all products
-      return allProducts;
+      console.log(`Returning ${filteredProducts.length} filtered products`);
+      return filteredProducts;
     } catch (error) {
       console.error('CRITICAL ERROR in DbStorage.listProducts:', error);
-      
-      // Last resort, manually query PostgreSQL pool
-      try {
-        const result = await pool.query('SELECT * FROM products');
-        console.log('LAST RESORT QUERY found', result.rows.length, 'products');
-        return result.rows;
-      } catch (fallbackError) {
-        console.error('ALL APPROACHES FAILED:', fallbackError);
-        return [];
-      }
+      return [];
     }
   }
 
@@ -430,31 +442,29 @@ export class DbStorage implements IStorage {
   }
 
   async getSellerOrders(sellerId: number): Promise<Order[]> {
-    // This is a more complex query - we need to find orders that contain products from this seller
-    // First, get all products from this seller
-    const sellerProducts = await db.select({ id: schema.products.id })
-      .from(schema.products)
-      .where(eq(schema.products.seller_id, sellerId));
-    
-    if (sellerProducts.length === 0) {
+    try {
+      // Directly query to get all orders containing products from this seller
+      const result = await this.dbPool.query(`
+        SELECT o.* FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN products p ON oi.product_id = p.id
+        WHERE p.seller_id = $1
+        GROUP BY o.id
+      `, [sellerId]);
+      
+      // Convert raw rows to Order objects
+      return result.rows.map(row => ({
+        id: row.id,
+        order_id: row.order_id,
+        order_date: row.order_date,
+        customer_id: row.customer_id,
+        total_price: row.total_price,
+        status: row.status
+      })) as Order[];
+    } catch (error) {
+      console.error('Error getting seller orders:', error);
       return [];
     }
-    
-    // Find order items containing these products
-    const orderItems = await db.select({ orderId: schema.orderItems.order_id })
-      .from(schema.orderItems)
-      .where(inArray(schema.orderItems.product_id, sellerProducts.map(p => p.id)));
-    
-    if (orderItems.length === 0) {
-      return [];
-    }
-    
-    // Get unique order IDs
-    const uniqueOrderIds = [...new Set(orderItems.map(item => item.orderId))];
-    
-    // Fetch the orders
-    return await db.select().from(schema.orders)
-      .where(inArray(schema.orders.id, uniqueOrderIds));
   }
 
   // ORDER ITEM OPERATIONS
