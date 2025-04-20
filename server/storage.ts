@@ -782,8 +782,12 @@ try {
         console.error("Error during async PostgreSQL initialization:", error);
       });
       break;
+    case 'memory':
+      console.log('Using in-memory storage by explicit configuration');
+      storageInstance = new MemStorage();
+      break;
     default:
-      console.log('Using in-memory storage');
+      console.log('Using in-memory storage (default fallback)');
       storageInstance = new MemStorage();
   }
 } catch (error) {

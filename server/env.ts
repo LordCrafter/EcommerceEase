@@ -66,8 +66,8 @@ function validateAndLogDatabaseEnv() {
   
   // Check if the database type is valid
   const dbType = process.env.DB_TYPE?.toLowerCase();
-  if (dbType && !['mysql', 'postgres', 'auto'].includes(dbType)) {
-    console.warn(`Warning: DB_TYPE '${dbType}' is not recognized. Valid options are 'mysql', 'postgres', or 'auto'.`);
+  if (dbType && !['mysql', 'postgres', 'auto', 'memory'].includes(dbType)) {
+    console.warn(`Warning: DB_TYPE '${dbType}' is not recognized. Valid options are 'mysql', 'postgres', 'memory', or 'auto'.`);
   }
   
   // Validate MySQL configuration
