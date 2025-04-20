@@ -276,6 +276,21 @@ async function createTestProducts(sellerIds: number[], categoryIds: number[]): P
       }
       
       const productId = generateProductId();
+      
+      // Log the data we're trying to insert
+      console.log('Creating product with data:', {
+        name: product.name,
+        seller_id: product.sellerId,
+        product_id: productId,
+        description: product.description,
+        price: product.price,
+        stock: product.stock,
+        status: product.status,
+        image_url: product.imageUrl || null,
+        added_date: new Date(),
+        last_updated: null
+      });
+      
       const createdProduct = await storage.createProduct({
         name: product.name,
         seller_id: product.sellerId,
@@ -300,6 +315,8 @@ async function createTestProducts(sellerIds: number[], categoryIds: number[]): P
         categoryId = categoryIds[3]; // Books
       }
       
+      console.log(`Assigning product ${createdProduct.id} to category ${categoryId}`);
+      
       await storage.assignProductToCategory({
         product_id: createdProduct.id,
         category_id: categoryId
@@ -308,6 +325,11 @@ async function createTestProducts(sellerIds: number[], categoryIds: number[]): P
       console.log(`Created product: ${product.name} from seller ${seller.shop_name}`);
     } catch (error) {
       console.error(`Error creating product ${product.name}:`, error);
+      // Print detailed error information
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Stack trace:', error.stack);
+      }
     }
   }
 }
