@@ -93,14 +93,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug route for direct database check
+  app.get("/api/debug/products", async (req, res, next) => {
+    try {
+      // This is a special debug route that directly accesses products
+      // If this route works but other routes don't, we know the issue is in the query filtering
+      const { db } = await import("./db");
+      const { products, productCategories, categories } = await import("@shared/schema");
+      
+      // Get all products directly from the database
+      const allProducts = await db.select().from(products);
+      console.log(`DEBUG: Found ${allProducts.length} products directly from database`);
+      
+      // Get all product-category relationships
+      const allAssociations = await db.select().from(productCategories);
+      console.log(`DEBUG: Found ${allAssociations.length} product-category associations`);
+      
+      // Get all categories
+      const allCategories = await db.select().from(categories);
+      
+      res.json({
+        products: allProducts,
+        associations: allAssociations,
+        categories: allCategories
+      });
+    } catch (error) {
+      console.error('Error in debug route:', error);
+      next(error);
+    }
+  });
+
   // PRODUCT ROUTES
   app.get("/api/products", async (req, res, next) => {
     try {
       const { sellerId, categoryId, status, search } = req.query;
       
       console.log('GET /api/products query params:', { sellerId, categoryId, status, search });
-      
-      // TEMPORARY: Direct database check for debugging removed - causing errors
       
       let products = [];
       
@@ -122,6 +150,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log('Raw products from database:', products);
+      
+      // ADDITIONAL DEBUGGING for special case of Electronics category
+      if (categoryId === '1') {
+        console.log('SPECIAL DEBUG FOR ELECTRONICS CATEGORY');
+        try {
+          const { db } = await import("./db");
+          const { products: productsTable, productCategories } = await import("@shared/schema");
+          
+          // Get all products directly from the database
+          const allProducts = await db.select().from(productsTable);
+          console.log(`DEBUG: Found ${allProducts.length} total products directly from database`);
+          
+          // Get all associations for category 1
+          const electronicsAssociations = await db.select().from(productCategories)
+            .where(eq(productCategories.category_id, 1));
+          
+          console.log(`DEBUG: Found ${electronicsAssociations.length} associations for Electronics category`);
+          if (electronicsAssociations.length > 0) {
+            console.log('Product IDs in electronics:', electronicsAssociations.map(a => a.product_id));
+          }
+        } catch (error) {
+          console.error('Error in extra debugging:', error);
+        }
+      }
       
       // Enhance products with category information
       const enhancedProducts = await Promise.all(

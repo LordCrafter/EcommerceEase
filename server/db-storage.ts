@@ -215,7 +215,7 @@ export class DbStorage implements IStorage {
           
           // Find all product_id values with this category_id
           const categoryAssociations = allAssociations.filter(
-            assoc => assoc.category_id === filter.categoryId
+            assoc => Number(assoc.category_id) === Number(filter.categoryId)
           );
           
           console.log(`Found ${categoryAssociations.length} associations for category ${filter.categoryId}`);
