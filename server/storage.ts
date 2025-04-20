@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import createMemoryStore from "memorystore";
 import session from "express-session";
 import {
   User, InsertUser, Seller, InsertSeller, Product, InsertProduct,
@@ -159,9 +158,22 @@ export class MemStorage implements IStorage {
     this.shipmentIdCounter = 1;
     this.reviewIdCounter = 1;
 
-    const MemoryStore = createMemoryStore(session);
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
+    // Create a minimal dummy session store initially
+    this.sessionStore = {
+      get: async () => null,
+      set: async () => {},
+      destroy: async () => {},
+      all: async () => []
+    };
+    
+    // Use dynamic import for ESM compatibility
+    import('memorystore').then(memorystore => {
+      const MemoryStore = memorystore.default(session);
+      this.sessionStore = new MemoryStore({
+        checkPeriod: 86400000 // prune expired entries every 24h
+      });
+    }).catch(err => {
+      console.error("Failed to initialize memory store:", err);
     });
 
     // Initialize with sample data

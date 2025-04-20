@@ -19,11 +19,40 @@ export class MySqlStorage implements IStorage {
   isAvailable: boolean = false;
   
   constructor() {
-    // Use an in-memory session store initially
-    const MemoryStore = require('memorystore')(session);
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
-    });
+    try {
+      // Setup session store with MySQL
+      const MySQLStore = mysqlSessionStore(session);
+      this.sessionStore = new MySQLStore({
+        createDatabaseTable: true,
+        schema: {
+          tableName: 'sessions',
+          columnNames: {
+            session_id: 'session_id',
+            expires: 'expires',
+            data: 'data'
+          }
+        }
+      }, pool);
+    } catch (error) {
+      console.error("Error initializing MySQL session store:", error);
+      // Use an in-memory session store as fallback
+      // We need to use dynamic import for ESM compatibility
+      import('memorystore').then(memorystore => {
+        const MemoryStore = memorystore.default(session);
+        this.sessionStore = new MemoryStore({
+          checkPeriod: 86400000 // prune expired entries every 24h
+        });
+      }).catch(err => {
+        console.error("Failed to initialize memory store:", err);
+        // Create a minimal dummy session store if all else fails
+        this.sessionStore = {
+          get: async () => null,
+          set: async () => {},
+          destroy: async () => {},
+          all: async () => []
+        };
+      });
+    }
   }
   
   // This method is used by the storage manager to check if MySQL is available
