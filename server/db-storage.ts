@@ -164,52 +164,57 @@ export class DbStorage implements IStorage {
     console.log('DbStorage.listProducts called with filter:', filter);
     
     try {
-      // EMERGENCY HOTFIX: Just return all products for simplicity
-      console.log('SIMPLEST APPROACH: Getting ALL products, ignoring filters');
+      let query = db.select().from(schema.products);
       
-      const products = await db.select().from(schema.products);
-      
-      console.log(`Simple query found ${products.length} products total in database`);
-      if (products.length > 0) {
-        console.log("All products in database:");
-        products.forEach(p => console.log(` - ${p.id}: ${p.name} (${p.status})`));
+      // Apply filters
+      if (filter) {
+        if (filter.sellerId !== undefined) {
+          query = query.where(eq(schema.products.seller_id, filter.sellerId));
+        }
+        
+        if (filter.status !== undefined) {
+          query = query.where(eq(schema.products.status, filter.status));
+        }
+        
+        // Handle category filter separately
+        if (filter.categoryId !== undefined) {
+          // Get product IDs that belong to this category
+          const productCategories = await db.select()
+            .from(schema.productCategories)
+            .where(eq(schema.productCategories.category_id, filter.categoryId));
+          
+          if (productCategories.length > 0) {
+            const productIds = productCategories.map(pc => pc.product_id);
+            query = query.where(inArray(schema.products.id, productIds));
+          } else {
+            // If no products in this category, return empty array early
+            console.log(`No products found in category ${filter.categoryId}`);
+            return [];
+          }
+        }
       }
+      
+      // Execute the query
+      const products = await query;
+      
+      console.log(`Found ${products.length} products with filter:`, filter || "none");
+      console.log("Raw products from database:", products);
       
       return products;
     } catch (error) {
-      console.error('CRITICAL ERROR in DbStorage.listProducts:', error);
+      console.error('Error in DbStorage.listProducts:', error);
       
-      // ABSOLUTE FALLBACK: Return hardcoded test products if even simple query fails
-      console.log('EMERGENCY: Returning hardcoded test products');
-      
-      return [
-        {
-          id: 1,
-          product_id: "PROD-test1",
-          seller_id: 1,
-          name: "Test Product",
-          description: "This is a test product",
-          price: 99.99,
-          stock: 100,
-          status: "active",
-          image_url: "https://picsum.photos/200",
-          added_date: new Date(),
-          last_updated: null
-        },
-        {
-          id: 2,
-          product_id: "PROD-test2",
-          seller_id: 1,
-          name: "Test Smartphone",
-          description: "A high-end smartphone with great features",
-          price: 599.99,
-          stock: 50,
-          status: "active",
-          image_url: null,
-          added_date: new Date(),
-          last_updated: new Date()
-        }
-      ];
+      // Query database directly as a fallback
+      try {
+        console.log('Trying direct database query as fallback...');
+        // Just get all products regardless of filter as a last resort
+        const products = await db.select().from(schema.products);
+        console.log(`Fallback found ${products.length} products`);
+        return products;
+      } catch (fallbackError) {
+        console.error('CRITICAL: Even fallback query failed:', fallbackError);
+        return [];
+      }
     }
   }
 
