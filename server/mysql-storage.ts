@@ -9,31 +9,42 @@ import {
   Payment, InsertPayment, Shipment, InsertShipment,
   Review, InsertReview
 } from "@shared/mysql-schema";
-import { db, pool } from "./mysql-db";
+import { db, pool, initializeMySql } from "./mysql-db";
 import * as schema from "@shared/mysql-schema";
 import { and, eq, like, inArray, or } from "drizzle-orm";
 import { IStorage } from "./storage";
 
 export class MySqlStorage implements IStorage {
   sessionStore: any; // Using any as a workaround for session.SessionStore typing issues
+  isAvailable: boolean = false;
   
   constructor() {
-    // Setup session store with MySQL
-    const MySQLStore = mysqlSessionStore(session);
-    this.sessionStore = new MySQLStore({
-      createDatabaseTable: true,
-      schema: {
-        tableName: 'sessions',
-        columnNames: {
-          session_id: 'session_id',
-          expires: 'expires',
-          data: 'data'
-        }
+    // Use an in-memory session store initially
+    const MemoryStore = require('memorystore')(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
+  }
+  
+  // This method is used by the storage manager to check if MySQL is available
+  async checkAvailability(): Promise<boolean> {
+    try {
+      // Try to initialize MySQL
+      const { isAvailable } = await initializeMySql();
+      this.isAvailable = isAvailable;
+      
+      if (this.isAvailable) {
+        // If MySQL is available, initialize the sample data
+        await this.initializeData().catch(error => {
+          console.error("Failed to initialize sample data:", error);
+        });
       }
-    }, pool);
-    
-    // Initialize sample data
-    this.initializeData().catch(console.error);
+      
+      return this.isAvailable;
+    } catch (error) {
+      console.error("MySQL availability check failed:", error);
+      return false;
+    }
   }
 
   private async initializeData() {

@@ -695,7 +695,7 @@ export class MemStorage implements IStorage {
 
 import { DbStorage } from "./db-storage";
 import { MySqlStorage } from "./mysql-storage";
-import { getDatabaseType } from "./config";
+import { getDatabaseType, POSTGRES_CONFIG } from "./config";
 
 // Choose which storage implementation to use based on configuration
 const dbType = getDatabaseType();
@@ -703,18 +703,35 @@ const dbType = getDatabaseType();
 // Create the appropriate storage instance based on database type
 let storageInstance: IStorage;
 
-switch (dbType) {
-  case 'mysql':
-    console.log('Using MySQL database storage');
-    storageInstance = new MySqlStorage();
-    break;
-  case 'postgres':
-    console.log('Using PostgreSQL database storage');
-    storageInstance = new DbStorage();
-    break;
-  default:
-    console.log('Using in-memory storage');
-    storageInstance = new MemStorage();
+try {
+  switch (dbType) {
+    case 'mysql':
+      console.log('Using MySQL database storage');
+      try {
+        storageInstance = new MySqlStorage();
+      } catch (error) {
+        console.error("Failed to initialize MySQL storage, falling back to PostgreSQL:", error);
+        if (POSTGRES_CONFIG.isAvailable) {
+          console.log('Falling back to PostgreSQL database storage');
+          storageInstance = new DbStorage();
+        } else {
+          console.log('No database available, using in-memory storage');
+          storageInstance = new MemStorage();
+        }
+      }
+      break;
+    case 'postgres':
+      console.log('Using PostgreSQL database storage');
+      storageInstance = new DbStorage();
+      break;
+    default:
+      console.log('Using in-memory storage');
+      storageInstance = new MemStorage();
+  }
+} catch (error) {
+  console.error("Error creating storage instance:", error);
+  console.log('Error occurred, falling back to in-memory storage');
+  storageInstance = new MemStorage();
 }
 
 export const storage = storageInstance;
