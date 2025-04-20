@@ -50,24 +50,30 @@ export const getDatabaseType = () => {
   console.log('- MYSQL_CONFIG.isAvailable:', MYSQL_CONFIG.isAvailable);
   console.log('- POSTGRES_CONFIG.isAvailable:', POSTGRES_CONFIG.isAvailable);
   
-  if (process.env.DB_TYPE) {
-    // If explicitly set, use that
+  // If DB_TYPE is explicitly set to something other than 'auto'
+  if (process.env.DB_TYPE && process.env.DB_TYPE !== 'auto') {
     console.log('Using explicitly set DB_TYPE:', process.env.DB_TYPE);
     return process.env.DB_TYPE;
   }
   
-  // Otherwise, use what's available
-  if (MYSQL_CONFIG.isAvailable) {
-    console.log('MySQL config is available, using MySQL');
-    return 'mysql';
+  // If DB_TYPE is 'auto' or not set, try to determine the best option
+  if (process.env.DB_TYPE === 'auto' || !process.env.DB_TYPE) {
+    console.log('Auto-detecting database type...');
+    
+    // In Replit environment, PostgreSQL is more likely to be properly configured
+    if (POSTGRES_CONFIG.isAvailable) {
+      console.log('PostgreSQL configuration found, trying PostgreSQL first');
+      return 'postgres';
+    }
+    
+    // Try MySQL as a second option
+    if (MYSQL_CONFIG.isAvailable) {
+      console.log('MySQL configuration found, trying MySQL');
+      return 'mysql';
+    }
   }
   
-  if (POSTGRES_CONFIG.isAvailable) {
-    console.log('PostgreSQL config is available, using PostgreSQL');
-    return 'postgres';
-  }
-  
-  // Default fallback
-  console.log('No database config found, using in-memory storage');
+  // Default fallback if nothing else is available
+  console.log('No valid database configuration found, using in-memory storage');
   return 'memory';
 };

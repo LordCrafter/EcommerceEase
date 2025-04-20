@@ -715,34 +715,80 @@ const dbType = getDatabaseType();
 // Create the appropriate storage instance based on database type
 let storageInstance: IStorage;
 
+// Function to initialize PostgreSQL storage with fallback
+async function initPostgresStorage(): Promise<IStorage> {
+  try {
+    console.log('Initializing PostgreSQL storage...');
+    return new DbStorage();
+  } catch (error) {
+    console.error("Failed to initialize PostgreSQL storage:", error);
+    console.log('Falling back to in-memory storage');
+    return new MemStorage();
+  }
+}
+
+// Function to initialize MySQL storage with fallback
+async function initMySqlStorage(): Promise<IStorage> {
+  try {
+    console.log('Initializing MySQL storage...');
+    const mysqlStorage = new MySqlStorage();
+    
+    // Check if MySQL is actually available
+    const isAvailable = await mysqlStorage.checkAvailability();
+    if (!isAvailable) {
+      console.log('MySQL connection test failed, trying PostgreSQL...');
+      if (POSTGRES_CONFIG.isAvailable) {
+        console.log('PostgreSQL configuration found, falling back to PostgreSQL');
+        return await initPostgresStorage();
+      } else {
+        console.log('No PostgreSQL available, using in-memory storage');
+        return new MemStorage();
+      }
+    }
+    
+    return mysqlStorage;
+  } catch (error) {
+    console.error("Failed to initialize MySQL storage:", error);
+    if (POSTGRES_CONFIG.isAvailable) {
+      console.log('Falling back to PostgreSQL database storage');
+      return await initPostgresStorage();
+    } else {
+      console.log('No database available, using in-memory storage');
+      return new MemStorage();
+    }
+  }
+}
+
+// Initialize storage based on selected database type
 try {
   switch (dbType) {
     case 'mysql':
       console.log('Using MySQL database storage');
-      try {
-        storageInstance = new MySqlStorage();
-      } catch (error) {
-        console.error("Failed to initialize MySQL storage, falling back to PostgreSQL:", error);
-        if (POSTGRES_CONFIG.isAvailable) {
-          console.log('Falling back to PostgreSQL database storage');
-          storageInstance = new DbStorage();
-        } else {
-          console.log('No database available, using in-memory storage');
-          storageInstance = new MemStorage();
-        }
-      }
+      storageInstance = new MemStorage(); // Temporary storage during async initialization
+      initMySqlStorage().then(storage => {
+        // Replace our storage reference with the properly initialized one
+        Object.assign(storageInstance, storage);
+      }).catch(error => {
+        console.error("Error during async MySQL initialization:", error);
+      });
       break;
     case 'postgres':
       console.log('Using PostgreSQL database storage');
-      storageInstance = new DbStorage();
+      storageInstance = new MemStorage(); // Temporary storage during async initialization
+      initPostgresStorage().then(storage => {
+        // Replace our storage reference with the properly initialized one
+        Object.assign(storageInstance, storage);
+      }).catch(error => {
+        console.error("Error during async PostgreSQL initialization:", error);
+      });
       break;
     default:
       console.log('Using in-memory storage');
       storageInstance = new MemStorage();
   }
 } catch (error) {
-  console.error("Error creating storage instance:", error);
-  console.log('Error occurred, falling back to in-memory storage');
+  console.error("Error initializing storage:", error);
+  console.log('Falling back to in-memory storage due to initialization error');
   storageInstance = new MemStorage();
 }
 
